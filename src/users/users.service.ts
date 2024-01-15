@@ -41,7 +41,7 @@ export class UsersService {
 
     async login(data: LoginDto): Promise<any> {
         try {
-            const user = await this.prisma.user.findFirst({ where: { userName: data.userName } })
+            const user = await this.prisma.user.findFirst({ where: { userName: data.email } })
             if (!user) throw new BadRequestException('User name is incorrect!')
             const isMatch = await bcrypt.compare(data.password, user.password)
             if (!isMatch) throw new BadRequestException('Password is incorrect!')
