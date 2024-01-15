@@ -1,0 +1,73 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["interactiveTransactions"]
+  binaryTargets   = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  userName        String    @map("user_name") @db.VarChar(255)
+  password        String    @map("password") @db.VarChar(255)
+  status          String    @map("status") @db.VarChar(50)
+  role            String    @map("role") @db.VarChar(50)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  amount          Float     @map("amount")
+  totalAmount     Float     @map("total_amount")
+  referUserId     Int?      @map("refer_user_id")
+
+  contracts       Contract[]
+
+  @@index([userName, status, role])
+  @@unique([userName])
+  @@map("user")
+}
+
+model Contract {
+  id                    Int         @id @default(autoincrement())
+  userId                Int         @map("user_id")
+  customerName          String      @map("customer_name") @db.VarChar(50)
+  customerId            String?     @map("customer_id") @db.VarChar(50)
+  addressId             String?     @map("address_id") @db.VarChar(1000)
+  phone                 String?     @map("phone") @db.VarChar(50)
+  address               String?     @map("address") @db.VarChar(1000)
+  loanAmount            Float       @map("loan_amount")
+  receiveAmount         Float       @map("receive_amount")
+  period                String      @map("period") @db.VarChar(20)
+  numberPeriod          Int         @map("number_period")
+  duration              Int         @map("duration")
+  note                  String?     @map("note") @db.VarChar(2000)
+  receiver              String?     @map("receiver") @db.VarChar(100)
+  status                String      @map("status") @db.VarChar(20)
+  dateIdCard            DateTime?   @db.Date @map("date_id_card")
+  date                  DateTime    @db.Date @map("date")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  user                  User        @relation(fields: [userId], references: [id])
+
+  @@index([userId, status, date])
+  @@index([customerName])
+  @@map("contract")
+}
+
+model Transaction {
+  id                    Int         @id @default(autoincrement())
+  userId                Int         @map("user_id")
+  type                  String      @map("type") @db.VarChar(20)
+  contractId            Int         @map("contract_id")
+  date                  DateTime    @db.Date @map("date")
+  amount                Float       @map("amount")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([contractId])
+  @@index([date])
+  @@map("transaction")
+}
