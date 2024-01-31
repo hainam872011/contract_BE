@@ -13,6 +13,8 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule)
     app.use(helmet())
     app.use(compression())
+    const cors = require('cors')
+    app.use(cors({ origin: true }))
     app.useGlobalPipes(
         new ValidationPipe({
             exceptionFactory: (validationErrors: ValidationError[] = []) => {
@@ -27,6 +29,11 @@ async function bootstrap() {
         type: VersioningType.URI,
     })
     const configService = app.get(ConfigService)
+    // app.use(function (req, res, next) {
+    //     res.header('Access-Control-Allow-Origin', '*')
+    //     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+    //     next()
+    // })
     await app.listen(configService.get('port'))
 }
 

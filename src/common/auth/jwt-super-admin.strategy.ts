@@ -7,7 +7,7 @@ import UserPayload from './user.payload'
 import { ROLES } from '../../constants/const'
 
 @Injectable()
-export default class JWTAdminStrategy extends PassportStrategy(Strategy, 'jwt-admin') {
+export default class JWTAdminStrategy extends PassportStrategy(Strategy, 'jwt-super-admin') {
     constructor() {
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -18,8 +18,9 @@ export default class JWTAdminStrategy extends PassportStrategy(Strategy, 'jwt-ad
 
     validate(userPayload: Record<string, any>): UserPayload {
         const role = userPayload.role
-        if (role === ROLES.ADMIN || role === ROLES.SUPERADMIN) return plainToClass(UserPayload, userPayload)
-        if (role === ROLES.VIEW) throw new ForbiddenException('Bạn không có quyền thực hiện thao tác')
+        if (role === ROLES.SUPERADMIN) return plainToClass(UserPayload, userPayload)
+        if (role === ROLES.VIEW || role === ROLES.ADMIN)
+            throw new ForbiddenException('Bạn không có quyền thực hiện thao tác')
         throw new UnauthorizedException()
     }
 }

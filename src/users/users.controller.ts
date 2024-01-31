@@ -9,6 +9,7 @@ import { UpdateDto } from './dto/update.dto'
 import { SignupDto } from './dto/signup.dto'
 import { LoginDto } from './dto/login.dto'
 import { JwtAuthGeneralGuard } from '../common/auth/guards/jwt-auth-general.guard'
+import { ResetPassDto } from './dto/reset-pass.dto'
 
 @Controller({
     path: 'user',
@@ -27,8 +28,13 @@ export class UsersController {
         return BaseResponse.ok(await this.usersService.login(data))
     }
 
+    @Post('reset-password')
+    async resetPassword(@Body() data: ResetPassDto): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.resetPassword(data))
+    }
+
     @Put()
-    @UseGuards(JwtAuthAdminGuard)
+    @UseGuards(JwtAuthGeneralGuard)
     async updateUser(@Body() data: UpdateDto, @AuthUser() user: UserPayload): Promise<BaseResponse> {
         return BaseResponse.ok(await this.usersService.updateUser(data, user))
     }
@@ -42,12 +48,12 @@ export class UsersController {
     @Delete('/:id')
     @UseGuards(JwtAuthAdminGuard)
     async deleteUser(@Param('id') deleteId: string, @AuthUser() user: UserPayload): Promise<BaseResponse> {
-        return BaseResponse.ok(await this.usersService.deleteUser(parseInt(deleteId), user.id))
+        return BaseResponse.ok(await this.usersService.deleteUser(parseInt(deleteId), user))
     }
 
     @Get('/list-user')
     @UseGuards(JwtAuthGeneralGuard)
-    async getListUser(): Promise<BaseResponse> {
-        return BaseResponse.ok(await this.usersService.getListUser())
+    async getListUser(@AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.getListUser(user))
     }
 }

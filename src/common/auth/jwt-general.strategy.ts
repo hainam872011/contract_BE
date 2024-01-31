@@ -18,7 +18,8 @@ export default class JWTGeneralStrategy extends PassportStrategy(Strategy, 'jwt-
 
     validate(userPayload: Record<string, any>): UserPayload {
         const role = userPayload.role
-        if (role === ROLES.VIEW || role === ROLES.ADMIN) return plainToClass(UserPayload, userPayload)
+        if (role === ROLES.VIEW || role === ROLES.ADMIN || role === ROLES.SUPERADMIN)
+            return plainToClass(UserPayload, userPayload)
         throw new UnauthorizedException()
     }
 }
