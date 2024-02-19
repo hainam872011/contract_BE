@@ -31,4 +31,14 @@ export class ContractsService {
             throw e
         }
     }
+
+    async getListContract(userId: number): Promise<any> {
+        try {
+            const user = await this.prisma.user.findUnique({ where: { id: userId } })
+            if (!user) throw new BadRequestException('User is not existed')
+            return this.prisma.contract.findMany({ where: { userId: user.referUserId } })
+        } catch (e) {
+            throw e
+        }
+    }
 }

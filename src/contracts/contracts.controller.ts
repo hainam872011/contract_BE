@@ -23,4 +23,10 @@ export class ContractsController {
     async getContract(@Param('id') contractId: string, @AuthUser() user: UserPayload): Promise<BaseResponse> {
         return BaseResponse.ok(await this.contractsService.getContract(parseInt(contractId), user.id))
     }
+
+    @Get()
+    @UseGuards(JwtAuthAdminGuard)
+    async getListContract(@Param('id') contractId: string, @AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.contractsService.getListContract(user.id))
+    }
 }
