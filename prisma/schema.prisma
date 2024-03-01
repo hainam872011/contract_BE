@@ -38,6 +38,7 @@ model Contract {
   address               String?     @map("address") @db.VarChar(1000)
   loanAmount            Float       @map("loan_amount")
   receiveAmount         Float       @map("receive_amount")
+  paidAmount            Float       @map("paid_amount") @default(0)
   period                String      @map("period") @db.VarChar(20)
   numberPeriod          Int         @map("number_period")
   duration              Int         @map("duration")
@@ -46,6 +47,7 @@ model Contract {
   status                String      @map("status") @db.VarChar(20)
   dateIdCard            DateTime?   @db.Date @map("date_id_card")
   date                  DateTime    @db.Date @map("date")
+  payDate               DateTime    @db.Date @map("pay_date")
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @default(now()) @updatedAt @map("updated_at")
 

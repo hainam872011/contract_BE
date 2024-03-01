@@ -35,15 +35,15 @@ describe('UsersService', () => {
                             findUnique: jest.fn().mockImplementation((args) => {
                                 return Promise.resolve({ id: 1, userName: 'admin', role: 'admin' })
                             }),
-                            findMany: jest.fn().mockImplementation((args) => {
-                                return Promise.resolve([
-                                    { id: 1, userName: 'admin', role: 'admin' },
-                                    { id: 2, userName: 'view', role: 'view' },
-                                ])
-                            }),
-                            findFirst: jest.fn().mockImplementation((args) => {
-                                return Promise.resolve({ id: 1, userName: 'admin', role: 'admin', password: 'admin' })
-                            }),
+                            // findMany: jest.fn().mockImplementation((args) => {
+                            //     return Promise.resolve([
+                            //         { id: 1, userName: 'admin', role: 'admin' },
+                            //         { id: 2, userName: 'view', role: 'view' },
+                            //     ])
+                            // }),
+                            // findFirst: jest.fn().mockImplementation((args) => {
+                            //     return Promise.resolve({ id: 1, userName: 'admin', role: 'admin', password: 'admin' })
+                            // }),
                         },
                     }),
                 },
@@ -65,7 +65,7 @@ describe('UsersService', () => {
         expect(res.userName).toEqual('admin')
     })
     it('get list user', async () => {
-        const res = await service.getListUser()
+        const res = await service.getListUser({ id: 1, role: 'admin', referent: 1, userName: 'admin' })
         expect(Array.isArray(res)).toBe(true)
     })
     it('login throw error', async () => {

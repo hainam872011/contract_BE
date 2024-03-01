@@ -1,11 +1,12 @@
-import {IsDate, IsNumber, IsOptional, IsString, MaxLength, Min, MinDate} from 'class-validator'
+import { IsDate, IsOptional, IsString, MaxLength, MinDate } from 'class-validator'
 import { Transform, Type } from 'class-transformer'
 import { DateTime } from 'luxon'
 
-export class ContractDto {
+export class UpdateContractDto {
+    @IsOptional()
     @IsString()
     @MaxLength(50)
-    customerName: string
+    customerName?: string
     @IsString()
     @IsOptional()
     @MaxLength(50)
@@ -22,20 +23,6 @@ export class ContractDto {
     @IsOptional()
     @MaxLength(1000)
     address?: string
-    @IsNumber()
-    @Min(1)
-    loanAmount: number
-    @Min(1)
-    @IsNumber()
-    receiveAmount: number
-    @IsString()
-    period: string
-    @IsNumber()
-    @Min(1)
-    numberPeriod: number
-    @IsNumber()
-    @Min(1)
-    duration: number
     @IsString()
     @IsOptional()
     note?: string
@@ -43,13 +30,14 @@ export class ContractDto {
     @IsOptional()
     @MaxLength(100)
     receiver?: string
+    @IsOptional()
+    @IsString()
+    @MaxLength(20)
+    status?: string
     @IsDate()
     @IsOptional()
     @Type(() => Date)
+    @MinDate(DateTime.now().toUTC().startOf('day').toJSDate())
     @Transform(({ value }) => DateTime.fromJSDate(value).toUTC().startOf('day').toJSDate())
     dateIdCard?: Date
-    @IsDate()
-    @Type(() => Date)
-    @Transform(({ value }) => DateTime.fromJSDate(value).toUTC().startOf('day').toJSDate())
-    date: Date
 }

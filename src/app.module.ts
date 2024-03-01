@@ -6,6 +6,8 @@ import configuration from '../config/configuration'
 import { AuthModule } from './common/auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { ContractsModule } from './contracts/contracts.module'
+import { TransactionModule } from './transaction/transaction.module'
+import { ScheduleModule } from '@nestjs/schedule'
 
 @Module({
     imports: [
@@ -15,11 +17,13 @@ import { ContractsModule } from './contracts/contracts.module'
             load: [configuration],
             isGlobal: true,
         }),
+        ScheduleModule.forRoot(),
         PrismaModule,
         HealthModule,
         AuthModule,
         UsersModule,
         ContractsModule,
+        TransactionModule,
     ],
     controllers: [],
     providers: [],
