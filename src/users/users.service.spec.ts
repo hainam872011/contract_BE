@@ -32,9 +32,9 @@ describe('UsersService', () => {
                     useFactory: () => ({
                         user: {
                             update: jest.fn(),
-                            findUnique: jest.fn().mockImplementation((args) => {
-                                return Promise.resolve({ id: 1, userName: 'admin', role: 'admin' })
-                            }),
+                            // findUnique: jest.fn().mockImplementation((args) => {
+                            //     return Promise.resolve({ id: 1, userName: 'admin', role: 'admin' })
+                            // }),
                             // findMany: jest.fn().mockImplementation((args) => {
                             //     return Promise.resolve([
                             //         { id: 1, userName: 'admin', role: 'admin' },

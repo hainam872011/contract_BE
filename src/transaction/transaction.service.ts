@@ -8,31 +8,43 @@ import { DateTime } from 'luxon'
 export class TransactionService {
     constructor(private readonly config: ConfigService, private prisma: PrismaService) {}
 
-    async getListTrans(contractId: number, userId: number) {
+    async getListTrans(contractId: number) {
         try {
-            return this.prisma.transaction.findMany({ where: { contractId, userId } })
+            const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
+            if (!contract) throw new BadRequestException('Contract not found')
+            return this.prisma.transaction.findMany({ where: { contractId } })
         } catch (e) {
             throw e
         }
     }
 
-    async createTransaction(contractId: number, userId: number, data: TransactionDto) {
+    async updateTransaction(contractId: number, transactionId: number, userId: number, data: TransactionDto) {
         try {
             const contract = await this.prisma.contract.findFirst({ where: { id: contractId, userId } })
             if (!contract) throw new BadRequestException('Contract does not exist or does not belong you')
-            const transactionWithDate = await this.prisma.transaction.findFirst({
-                where: { date: data.date, contractId, userId },
-            })
-            if (transactionWithDate) throw new BadRequestException('Date already existed')
-            return this.prisma.transaction.create({
-                data: {
-                    userId,
-                    type: 'date',
-                    contractId,
-                    date: data.date,
-                    amount: data.amount,
-                },
-            })
+            const [createTrans, updateContract, updateAmount] = await Promise.all([
+                this.prisma.transaction.update({
+                    where: { id: transactionId },
+                    data: {
+                        isPaid: data.isPaid,
+                        dateTransfer: data.dateTransfer,
+                        amount: data.amount,
+                    },
+                }),
+                this.prisma.contract.update({
+                    where: { id: contractId },
+                    data: {
+                        paidAmount: { increment: data.amount },
+                    },
+                }),
+                this.prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        amount: { increment: data.amount },
+                    },
+                }),
+            ])
+            return createTrans
         } catch (e) {
             throw e
         }

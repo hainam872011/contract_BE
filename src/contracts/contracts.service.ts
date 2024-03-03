@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../common/connections/prisma.service'
 import { ContractDto } from './dto/contract.dto'
 import { SearchDto } from './dto/search.dto'
-import { Prisma } from '@prisma/client'
 import { DateTime } from 'luxon'
 import { CONTRACT_STATUS } from '../constants/const'
 import { UpdateContractDto } from './dto/updateContract.dto'
@@ -18,17 +17,28 @@ export class ContractsService {
             if (!user) throw new BadRequestException('User is not existed')
             if (user.amount < data.receiveAmount) throw new BadRequestException('Insufficient money')
             const updateAmount = user.amount - data.receiveAmount
-            const [contract, amount] = await Promise.all([
-                this.prisma.contract.create({
-                    data: {
-                        ...data,
-                        userId: userId,
-                        payDate: data.date,
-                        status: CONTRACT_STATUS.PENDING,
-                    },
-                }),
-                this.prisma.user.update({ where: { id: userId }, data: { amount: updateAmount } }),
-            ])
+            const contract = await this.prisma.contract.create({
+                data: {
+                    ...data,
+                    userId: userId,
+                    payDate: data.date,
+                    status: CONTRACT_STATUS.PENDING,
+                },
+            })
+            await this.prisma.user.update({ where: { id: userId }, data: { amount: updateAmount } })
+            const dataTransaction = []
+            for (let i = 0; i < data.numberPeriod; i++) {
+                const dateRow = DateTime.fromJSDate(data.date).plus({ days: i }).toJSDate()
+                const amount = Math.round(data.loanAmount / data.numberPeriod)
+                dataTransaction.push({
+                    userId,
+                    type: 'payment',
+                    date: dateRow,
+                    amount,
+                    contractId: contract.id,
+                })
+            }
+            await this.prisma.transaction.createMany({ data: dataTransaction })
             return contract
         } catch (e) {
             throw e
@@ -37,7 +47,35 @@ export class ContractsService {
 
     async getContract(contractId: number, userId: number): Promise<any> {
         try {
-            const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
+            const contract = await this.prisma.contract.findUnique({
+                where: { id: contractId },
+                select: {
+                    id: true,
+                    userId: true,
+                    customerName: true,
+                    customerId: true,
+                    addressId: true,
+                    phone: true,
+                    address: true,
+                    loanAmount: true,
+                    receiveAmount: true,
+                    paidAmount: true,
+                    period: true,
+                    numberPeriod: true,
+                    duration: true,
+                    note: true,
+                    receiver: true,
+                    status: true,
+                    dateIdCard: true,
+                    date: true,
+                    payDate: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    user: true,
+                    transaction: true,
+                    _count: true,
+                },
+            })
             if (!contract) throw new BadRequestException('Contract is not existed')
             const user = await this.prisma.user.findUnique({ where: { id: userId } })
             if (!user) throw new BadRequestException('User is not existed')

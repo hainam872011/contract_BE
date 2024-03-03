@@ -52,6 +52,7 @@ model Contract {
   updatedAt             DateTime    @default(now()) @updatedAt @map("updated_at")
 
   user                  User        @relation(fields: [userId], references: [id])
+  transaction           Transaction[]
 
   @@index([userId, status, date])
   @@index([customerName])
@@ -62,11 +63,15 @@ model Transaction {
   id                    Int         @id @default(autoincrement())
   userId                Int         @map("user_id")
   type                  String      @map("type") @db.VarChar(20)
+  isPaid                Boolean     @map("is_paid") @default(false)
   contractId            Int         @map("contract_id")
   date                  DateTime    @db.Date @map("date")
+  dateTransfer          DateTime?   @db.Date @map("date_transfer")
   amount                Float       @map("amount")
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  contract              Contract        @relation(fields: [contractId], references: [id])
 
   @@index([userId])
   @@index([contractId])

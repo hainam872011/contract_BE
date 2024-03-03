@@ -14,18 +14,21 @@ export class TransactionController {
     constructor(private readonly contractsService: TransactionService) {}
 
     @Get('/:contractId')
-    @UseGuards(JwtAuthAdminGuard)
-    async getListTrans(@Param('contractId') contractId: string, @AuthUser() user: UserPayload): Promise<BaseResponse> {
-        return BaseResponse.ok(await this.contractsService.getListTrans(parseInt(contractId), user.id))
+    @UseGuards(JwtAuthGeneralGuard)
+    async getListTrans(@Param('contractId') contractId: string): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.contractsService.getListTrans(parseInt(contractId)))
     }
 
-    @Post('/:contractId')
+    @Post('/:contractId/:transactionId')
     @UseGuards(JwtAuthAdminGuard)
-    async createTransaction(
+    async updateTransaction(
         @Param('contractId') contractId: string,
+        @Param('transactionId') transactionId: string,
         @AuthUser() user: UserPayload,
         @Body() data: TransactionDto,
     ): Promise<BaseResponse> {
-        return BaseResponse.ok(await this.contractsService.createTransaction(parseInt(contractId), user.id, data))
+        return BaseResponse.ok(
+            await this.contractsService.updateTransaction(parseInt(contractId), parseInt(transactionId), user.id, data),
+        )
     }
 }
