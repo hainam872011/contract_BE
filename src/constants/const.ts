@@ -19,3 +19,8 @@ export const CONTRACT_STATUS = {
     LAST_DAY: 'lastday',
     DELETED: 'deleted',
 }
+
+export const TRANSACTION_TYPE = {
+    PAYMENT: 'payment',
+    INVEST: 'invest',
+}

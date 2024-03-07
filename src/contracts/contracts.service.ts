@@ -17,25 +17,36 @@ export class ContractsService {
             if (!user) throw new BadRequestException('User is not existed')
             if (user.amount < data.receiveAmount) throw new BadRequestException('Insufficient money')
             const updateAmount = user.amount - data.receiveAmount
+            const paidAmount = data.collectMoney ? Math.round(data.loanAmount / data.numberPeriod) : undefined
             const contract = await this.prisma.contract.create({
                 data: {
                     ...data,
                     userId: userId,
                     payDate: data.date,
                     status: CONTRACT_STATUS.PENDING,
+                    paidAmount,
                 },
             })
             await this.prisma.user.update({ where: { id: userId }, data: { amount: updateAmount } })
             const dataTransaction = []
             for (let i = 0; i < data.numberPeriod; i++) {
+                let isPaid = undefined
+                let dateTransfer = undefined
+                let amount = 0
+                if (i === 0 && data.collectMoney) {
+                    isPaid = true
+                    amount = Math.round(data.loanAmount / data.numberPeriod)
+                    dateTransfer = data.date
+                }
                 const dateRow = DateTime.fromJSDate(data.date).plus({ days: i }).toJSDate()
-                const amount = Math.round(data.loanAmount / data.numberPeriod)
                 dataTransaction.push({
                     userId,
                     type: 'payment',
                     date: dateRow,
-                    amount,
+                    amount: amount,
                     contractId: contract.id,
+                    isPaid,
+                    dateTransfer,
                 })
             }
             await this.prisma.transaction.createMany({ data: dataTransaction })
@@ -71,6 +82,7 @@ export class ContractsService {
                     payDate: true,
                     createdAt: true,
                     updatedAt: true,
+                    collectMoney: true,
                     user: true,
                     transaction: true,
                     _count: true,

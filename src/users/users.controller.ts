@@ -10,6 +10,7 @@ import { SignupDto } from './dto/signup.dto'
 import { LoginDto } from './dto/login.dto'
 import { JwtAuthGeneralGuard } from '../common/auth/guards/jwt-auth-general.guard'
 import { ResetPassDto } from './dto/reset-pass.dto'
+import { AddMoneyDto } from './dto/add-money.dto'
 
 @Controller({
     path: 'user',
@@ -29,12 +30,19 @@ export class UsersController {
     }
 
     @Post('reset-password')
-    async resetPassword(@Body() data: ResetPassDto): Promise<BaseResponse> {
-        return BaseResponse.ok(await this.usersService.resetPassword(data))
+    @UseGuards(JwtAuthAdminGuard)
+    async resetPassword(@Body() data: ResetPassDto, @AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.resetPassword(data, user.id))
+    }
+
+    @Post('capital')
+    @UseGuards(JwtAuthAdminGuard)
+    async addMoney(@Body() data: AddMoneyDto, @AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.addMoney(user.id, data))
     }
 
     @Put()
-    @UseGuards(JwtAuthGeneralGuard)
+    @UseGuards(JwtAuthAdminGuard)
     async updateUser(@Body() data: UpdateDto, @AuthUser() user: UserPayload): Promise<BaseResponse> {
         return BaseResponse.ok(await this.usersService.updateUser(data, user))
     }
@@ -55,5 +63,22 @@ export class UsersController {
     @UseGuards(JwtAuthGeneralGuard)
     async getListUser(@AuthUser() user: UserPayload): Promise<BaseResponse> {
         return BaseResponse.ok(await this.usersService.getListUser(user))
+    }
+
+    @Get('/statistics')
+    @UseGuards(JwtAuthGeneralGuard)
+    async getStatistics(@AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.getStatistics(user.id))
+    }
+    @Get('/transactionInDay')
+    @UseGuards(JwtAuthGeneralGuard)
+    async transactionInDay(@AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.transactionInDay(user.id))
+    }
+
+    @Get('/capital')
+    @UseGuards(JwtAuthGeneralGuard)
+    async listTransactionAddMoney(@AuthUser() user: UserPayload): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.usersService.listTransactionAddMoney(user.id))
     }
 }

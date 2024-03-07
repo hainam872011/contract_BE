@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Res, UseGuards, ValidationPipe } from '@nestjs/common'
 import { ContractsService } from './contracts.service'
 import { JwtAuthAdminGuard } from '../common/auth/guards/jwt-auth-admin.guard'
 import { AuthUser } from '../common/decorators/auth-user.decorator'
@@ -18,11 +18,20 @@ export class ContractsController {
 
     @Post()
     @UseGuards(JwtAuthAdminGuard)
-    async createContract(@Body() data: ContractDto, @AuthUser() user: UserPayload): Promise<BaseResponse> {
+    async createContract(
+        @Body(
+            new ValidationPipe({
+                transform: true,
+                transformOptions: { excludeExtraneousValues: true },
+            }),
+        )
+        data: ContractDto,
+        @AuthUser() user: UserPayload,
+    ): Promise<BaseResponse> {
         return BaseResponse.ok(await this.contractsService.createContract(data, user.id))
     }
 
-    @Post('/:id')
+    @Put('/:id')
     @UseGuards(JwtAuthAdminGuard)
     async updateContract(
         @Param('id') contractId: string,
@@ -31,6 +40,93 @@ export class ContractsController {
     ): Promise<BaseResponse> {
         return BaseResponse.ok(await this.contractsService.updateContract(data, user.id, parseInt(contractId)))
     }
+
+    // @Get('/export')
+    // @UseGuards(JwtAuthGeneralGuard)
+    // async giveback(@Query() searchDto: SearchDto, @AuthUser() user: UserPayload, @Res() res): Promise<any> {
+    //     const { data } = await this.contractsService.getListContract(user.id, searchDto)
+    //     const fields = [
+    //         {
+    //             label: 'User wallet address',
+    //             value: 'hostWallet',
+    //         },
+    //         {
+    //             label: 'User email',
+    //             value: 'userEmail',
+    //         },
+    //         {
+    //             label: 'Reservation ID',
+    //             value: 'reservationIdFormat',
+    //         },
+    //         {
+    //             label: 'Booking date',
+    //             value: 'reservationDate',
+    //         },
+    //         {
+    //             label: 'Checkin date',
+    //             value: 'checkinDate',
+    //         },
+    //         {
+    //             label: 'Checkout date',
+    //             value: 'checkoutDate',
+    //         },
+    //         {
+    //             label: 'No. of nights',
+    //             value: 'nights',
+    //         },
+    //         {
+    //             label: 'Booking value',
+    //             value: 'finalPrice',
+    //         },
+    //         {
+    //             label: 'Booking Currency',
+    //             value: 'currency',
+    //         },
+    //         {
+    //             label: 'Giveback Amount',
+    //             value: 'giveback',
+    //         },
+    //         {
+    //             label: 'Giveback Amount (TRVL)',
+    //             value: 'giveBackTRVL',
+    //         },
+    //         {
+    //             label: 'Current Wallet Type',
+    //             value: 'walletType',
+    //         },
+    //         {
+    //             label: 'Current Network',
+    //             value: 'network',
+    //         },
+    //         {
+    //             label: 'Current Address',
+    //             value: 'currentAddress',
+    //         },
+    //     ]
+    //     const fieldsGroupByUser = [
+    //         {
+    //             label: 'User wallet address',
+    //             value: 'hostWallet',
+    //         },
+    //         {
+    //             label: 'User email',
+    //             value: 'userEmail',
+    //         },
+    //         {
+    //             label: 'No. of nights',
+    //             value: 'nights',
+    //         },
+    //         {
+    //             label: 'Giveback Amount (TRVL)',
+    //             value: 'giveBackTRVL',
+    //         },
+    //     ]
+    //     const json2csvParser = new Parser({ fields: fields })
+    //     const csvString = json2csvParser.parse(result)
+    //     res.setHeader('Content-disposition', 'attachment; filename=giveback.csv')
+    //     res.set('Content-Type', 'text/csv')
+    //     res.status(200).send(csvString)
+    // }
 
     @Get('/:id')
     @UseGuards(JwtAuthGeneralGuard)

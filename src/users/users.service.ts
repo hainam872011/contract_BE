@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../common/connections/prisma.service'
-import { ROLES, STATUS } from '../constants/const'
+import { CONTRACT_STATUS, ROLES, STATUS, TRANSACTION_TYPE } from '../constants/const'
 import UserPayload from '../common/auth/user.payload'
 import * as bcrypt from 'bcrypt'
 import { JwtService } from '@nestjs/jwt'
@@ -9,6 +9,8 @@ import { SignupDto } from './dto/signup.dto'
 import { LoginDto } from './dto/login.dto'
 import { UpdateDto } from './dto/update.dto'
 import { ResetPassDto } from './dto/reset-pass.dto'
+import { DateTime } from 'luxon'
+import { AddMoneyDto } from './dto/add-money.dto'
 
 @Injectable()
 export class UsersService {
@@ -27,7 +29,7 @@ export class UsersService {
             const userExisted = await this.prisma.user.findFirst({ where: { userName: data.userName } })
             if (userExisted) throw new BadRequestException('User name is existed')
             const hash = await bcrypt.hash(data.password, 10)
-            await this.prisma.user.create({
+            const newUser = await this.prisma.user.create({
                 data: {
                     userName: data.userName,
                     role: data.role,
@@ -37,6 +39,9 @@ export class UsersService {
                     amount: data.amount,
                     totalAmount: data.amount,
                 },
+            })
+            await this.prisma.transactionAddMoney.create({
+                data: { type: TRANSACTION_TYPE.INVEST, amount: data.amount, userId: newUser.id },
             })
             return true
         } catch (e) {
@@ -63,9 +68,11 @@ export class UsersService {
         }
     }
 
-    async resetPassword(data: ResetPassDto): Promise<any> {
+    async resetPassword(data: ResetPassDto, adminUserId: number): Promise<any> {
         try {
             const hash = await bcrypt.hash(data.password, 10)
+            const user = await this.prisma.user.findUnique({ where: { id: data.id } })
+            if (!user) throw new BadRequestException('Không tìm thấy người dùng')
             await this.prisma.user.update({
                 where: { id: data.id },
                 data: {
@@ -92,6 +99,9 @@ export class UsersService {
             const hash = await bcrypt.hash(data.password, 10)
             const amount = data.amountAdded ? userUpdate.amount + data.amountAdded : undefined
             const totalAmount = data.amountAdded ? userUpdate.totalAmount + data.amountAdded : undefined
+            await this.prisma.transactionAddMoney.create({
+                data: { type: TRANSACTION_TYPE.INVEST, amount: data.amountAdded, userId: user.id },
+            })
             await this.prisma.user.update({
                 where: { id: data.id },
                 data: {
@@ -172,6 +182,106 @@ export class UsersService {
                     where: { id: user.id },
                     select,
                 })
+        } catch (e) {
+            throw e
+        }
+    }
+
+    async getStatistics(userId: number): Promise<any> {
+        try {
+            const userInfo = await this.prisma.user.findUnique({ where: { id: userId } })
+            if (!userInfo) throw new BadRequestException('Không tìm thấy thông tin user')
+            const adminUserId = userInfo.referUserId ? userInfo.referUserId : userId
+            const countContract = await this.prisma.contract.count({ where: { userId: adminUserId } })
+            const countContractActive = await this.prisma.contract.count({
+                where: { userId: adminUserId, status: { notIn: [CONTRACT_STATUS.CLOSED, CONTRACT_STATUS.DELETED] } },
+            })
+            const contractInMonth = await this.prisma.contract.aggregate({
+                where: {
+                    date: {
+                        gte: DateTime.local({ zone: 'UTC' }).startOf('month').toJSDate(),
+                        lte: DateTime.local({ zone: 'UTC' }).endOf('month').toJSDate(),
+                    },
+                    userId: adminUserId,
+                },
+                _sum: { loanAmount: true, receiveAmount: true },
+            })
+            const sumAmountLending = await this.prisma.contract.aggregate({
+                where: { userId: adminUserId, status: { notIn: [CONTRACT_STATUS.CLOSED, CONTRACT_STATUS.DELETED] } },
+                _sum: { loanAmount: true, receiveAmount: true },
+            })
+            const amountLending = sumAmountLending?._sum.receiveAmount
+            const profitOfMonth =
+                contractInMonth && contractInMonth._sum
+                    ? contractInMonth._sum.loanAmount - contractInMonth._sum.receiveAmount
+                    : 0
+            const capital = userInfo.totalAmount
+            const amount = userInfo.amount
+            return {
+                capital,
+                amount,
+                totalContract: countContract,
+                contractActive: countContractActive,
+                profitOfMonth,
+                amountLending,
+            }
+        } catch (e) {
+            throw e
+        }
+    }
+
+    async transactionInDay(userId: number) {
+        try {
+            const userInfo = await this.prisma.user.findUnique({ where: { id: userId } })
+            if (!userInfo) throw new BadRequestException('Không tìm thấy thông tin user')
+            const adminUserId = userInfo.referUserId ? userInfo.referUserId : userId
+            const startOfDay = DateTime.local({ zone: 'UTC' }).startOf('day').toJSDate()
+            const endOfDay = DateTime.local({ zone: 'UTC' }).endOf('day').toJSDate()
+            return this.prisma.transaction.findMany({
+                where: {
+                    userId: adminUserId,
+                    dateTransfer: { gte: startOfDay, lte: endOfDay },
+                    isPaid: true,
+                },
+                select: {
+                    contractId: true,
+                    contract: true,
+                    dateTransfer: true,
+                    amount: true,
+                    isPaid: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    type: true,
+                },
+            })
+        } catch (e) {
+            throw e
+        }
+    }
+
+    async listTransactionAddMoney(userId: number) {
+        try {
+            const user = await this.prisma.user.findUnique({ where: { id: userId } })
+            if (!user) throw new BadRequestException('Không tìm thấy thông tin user')
+            const adminUserId = user.referUserId || user.id
+            return this.prisma.transactionAddMoney.findMany({ where: { userId: adminUserId } })
+        } catch (e) {
+            throw e
+        }
+    }
+
+    async addMoney(userId: number, data: AddMoneyDto) {
+        try {
+            await this.prisma.user.update({ where: { id: userId }, data: { amount: { increment: data.amount } } })
+            await this.prisma.transactionAddMoney.create({
+                data: {
+                    type: TRANSACTION_TYPE.INVEST,
+                    amount: data.amount,
+                    userId: userId,
+                    name: data.name,
+                    note: data.note,
+                },
+            })
         } catch (e) {
             throw e
         }

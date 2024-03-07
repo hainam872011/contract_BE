@@ -12,7 +12,9 @@ export class TransactionService {
         try {
             const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
             if (!contract) throw new BadRequestException('Contract not found')
-            return this.prisma.transaction.findMany({ where: { contractId } })
+            const trans = await this.prisma.transaction.findMany({ where: { contractId } })
+            const expectedAmount = Math.round(contract.loanAmount / contract.numberPeriod)
+            return trans.map((i) => ({ ...i, expectedAmount }))
         } catch (e) {
             throw e
         }
@@ -22,25 +24,34 @@ export class TransactionService {
         try {
             const contract = await this.prisma.contract.findFirst({ where: { id: contractId, userId } })
             if (!contract) throw new BadRequestException('Contract does not exist or does not belong you')
+            let calculateAmount = { increment: data.amount }
+            let amount = data.amount
+            let payDate = DateTime.fromJSDate(data.dateTransfer).plus({ day: contract.duration }).toJSDate()
+            if (!data.isPaid) {
+                calculateAmount = { increment: 0 - data.amount }
+                amount = 0
+                payDate = data.dateTransfer
+            }
             const [createTrans, updateContract, updateAmount] = await Promise.all([
                 this.prisma.transaction.update({
                     where: { id: transactionId },
                     data: {
                         isPaid: data.isPaid,
                         dateTransfer: data.dateTransfer,
-                        amount: data.amount,
+                        amount,
                     },
                 }),
                 this.prisma.contract.update({
                     where: { id: contractId },
                     data: {
-                        paidAmount: { increment: data.amount },
+                        paidAmount: calculateAmount,
+                        payDate,
                     },
                 }),
                 this.prisma.user.update({
                     where: { id: userId },
                     data: {
-                        amount: { increment: data.amount },
+                        amount: calculateAmount,
                     },
                 }),
             ])

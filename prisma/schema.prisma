@@ -21,7 +21,8 @@ model User {
   totalAmount     Float     @map("total_amount")
   referUserId     Int?      @map("refer_user_id")
 
-  contracts       Contract[]
+  contracts                 Contract[]
+  TransactionAddMoney       TransactionAddMoney[]
 
   @@index([userName, status, role])
   @@unique([userName])
@@ -42,6 +43,7 @@ model Contract {
   period                String      @map("period") @db.VarChar(20)
   numberPeriod          Int         @map("number_period")
   duration              Int         @map("duration")
+  collectMoney          Boolean?    @map("collectMoney") @default(false)
   note                  String?     @map("note") @db.VarChar(2000)
   receiver              String?     @map("receiver") @db.VarChar(100)
   status                String      @map("status") @db.VarChar(20)
@@ -77,4 +79,20 @@ model Transaction {
   @@index([contractId])
   @@index([date])
   @@map("transaction")
+}
+
+model TransactionAddMoney {
+  id                    Int         @id @default(autoincrement())
+  userId                Int         @map("user_id")
+  type                  String?     @map("type") @db.VarChar(20)
+  name                  String?     @map("name")
+  note                  String?     @map("note")
+  amount                Float       @map("amount")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  user                  User        @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("transaction_add_money")
 }
