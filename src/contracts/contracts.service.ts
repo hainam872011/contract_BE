@@ -151,8 +151,20 @@ export class ContractsService {
 
     async updateContract(data: UpdateContractDto, userId: number, contractId: number): Promise<any> {
         try {
-            const contract = await this.prisma.contract.findMany({ where: { id: contractId, userId } })
-            if (!contract) throw new BadRequestException('You have not permission for this contract')
+            const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
+            if (!contract) throw new BadRequestException('Hợp đồng không tồn tại!')
+            if (contract.userId !== userId) throw new ForbiddenException('Bạn không có quyền update hợp đồng này!')
+            if (contract.status === CONTRACT_STATUS.CLOSED && data.status === CONTRACT_STATUS.DELETED)
+                throw new BadRequestException('Hợp đồng này đã đóng, không thể xoá!')
+            if (contract.status === CONTRACT_STATUS.DELETED && data.status === CONTRACT_STATUS.CLOSED)
+                throw new BadRequestException('Hợp đồng này đã xoá, không thể đóng!')
+            if (data.status === CONTRACT_STATUS.DELETED) {
+                const recoveryAmount = contract.receiveAmount - contract.paidAmount
+                return await Promise.all([
+                    this.prisma.user.update({ where: { id: userId }, data: { amount: { increment: recoveryAmount } } }),
+                    this.prisma.contract.update({ where: { id: contractId }, data }),
+                ])
+            }
             return this.prisma.contract.update({ where: { id: contractId }, data })
         } catch (e) {
             throw e
