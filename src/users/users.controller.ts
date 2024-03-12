@@ -30,9 +30,9 @@ export class UsersController {
     }
 
     @Post('reset-password')
-    @UseGuards(JwtAuthAdminGuard)
+    @UseGuards(JwtAuthGeneralGuard)
     async resetPassword(@Body() data: ResetPassDto, @AuthUser() user: UserPayload): Promise<BaseResponse> {
-        return BaseResponse.ok(await this.usersService.resetPassword(data, user.id))
+        return BaseResponse.ok(await this.usersService.resetPassword(data, user))
     }
 
     @Post('capital')

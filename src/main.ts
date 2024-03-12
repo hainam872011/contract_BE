@@ -18,9 +18,7 @@ async function bootstrap() {
     app.useGlobalPipes(
         new ValidationPipe({
             exceptionFactory: (validationErrors: ValidationError[] = []) => {
-                return new ValidationException(
-                    validationErrors.map((error) => Object.values(error.constraints).join('')),
-                )
+                return new ValidationException(Object.values(validationErrors?.[0].constraints))
             },
         }),
     )

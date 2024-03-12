@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../common/connections/prisma.service'
 import { TransactionDto } from '../contracts/dto/transaction.dto'
 import { DateTime } from 'luxon'
+import { CONTRACT_STATUS } from '../constants/const'
 
 @Injectable()
 export class TransactionService {
@@ -11,7 +12,7 @@ export class TransactionService {
     async getListTrans(contractId: number) {
         try {
             const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
-            if (!contract) throw new BadRequestException('Contract not found')
+            if (!contract) throw new BadRequestException('Không tìm thấy hợ đồng')
             const trans = await this.prisma.transaction.findMany({ where: { contractId } })
             const expectedAmount = Math.round(contract.loanAmount / contract.numberPeriod)
             return trans.map((i) => ({ ...i, expectedAmount }))
@@ -24,6 +25,8 @@ export class TransactionService {
         try {
             const contract = await this.prisma.contract.findFirst({ where: { id: contractId, userId } })
             if (!contract) throw new BadRequestException('Contract does not exist or does not belong you')
+            if (contract.status === CONTRACT_STATUS.CLOSED || contract.status === CONTRACT_STATUS.DELETED)
+                throw new BadRequestException('Hợp đồng đã đóng hoặc xoá, không thể thao tác')
             let calculateAmount = { increment: data.amount }
             let amount = data.amount
             let payDate = DateTime.fromJSDate(data.dateTransfer).plus({ day: contract.duration }).toJSDate()

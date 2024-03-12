@@ -14,10 +14,11 @@ export class ContractsService {
     async createContract(data: ContractDto, userId: number): Promise<any> {
         try {
             const user = await this.prisma.user.findUnique({ where: { id: userId } })
-            if (!user) throw new BadRequestException('User is not existed')
-            if (user.amount < data.receiveAmount) throw new BadRequestException('Insufficient money')
-            const updateAmount = user.amount - data.receiveAmount
+            if (!user) throw new BadRequestException('Tài khoản không tồn tại')
+            if (user.amount < data.receiveAmount) throw new BadRequestException('Không đủ tiền cho vay mới')
+            let updateAmount = user.amount - data.receiveAmount
             const paidAmount = data.collectMoney ? Math.round(data.loanAmount / data.numberPeriod) : undefined
+            updateAmount = paidAmount ? updateAmount + paidAmount : updateAmount
             const contract = await this.prisma.contract.create({
                 data: {
                     ...data,
@@ -88,11 +89,11 @@ export class ContractsService {
                     _count: true,
                 },
             })
-            if (!contract) throw new BadRequestException('Contract is not existed')
+            if (!contract) throw new BadRequestException('Hợp đồng không tồn tại')
             const user = await this.prisma.user.findUnique({ where: { id: userId } })
-            if (!user) throw new BadRequestException('User is not existed')
+            if (!user) throw new BadRequestException('Tài khoản không tồn tại')
             if (contract.userId !== user.id && contract.userId !== user.referUserId)
-                throw new ForbiddenException('You have not permission for this contract')
+                throw new ForbiddenException('Bạn không có quyền xem hợp đồng này')
             return contract
         } catch (e) {
             throw e
@@ -102,7 +103,7 @@ export class ContractsService {
     async getListContract(userId: number, queries: SearchDto): Promise<any> {
         try {
             const user = await this.prisma.user.findUnique({ where: { id: userId } })
-            if (!user) throw new BadRequestException('User is not existed')
+            if (!user) throw new BadRequestException('Tài khoản không tồn tại')
             const referId = user.referUserId ? user.referUserId : user.id
             let date = undefined
             if (queries.startDate)
@@ -139,10 +140,16 @@ export class ContractsService {
 
     async deleteContract(contractId: number, userId: number): Promise<any> {
         try {
-            await this.prisma.contract.updateMany({
-                where: { id: contractId, userId },
-                data: { status: CONTRACT_STATUS.DELETED },
-            })
+            const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
+            if (!contract) throw new BadRequestException('Hợp đồng không tồn tại!')
+            if (contract.userId !== userId) throw new ForbiddenException('Bạn không có quyền update hợp đồng này!')
+            if (contract.status === CONTRACT_STATUS.CLOSED)
+                throw new BadRequestException('Hợp đồng này đã đóng, không thể xoá!')
+            const recoveryAmount = contract.receiveAmount - contract.paidAmount
+            await Promise.all([
+                this.prisma.user.update({ where: { id: userId }, data: { amount: { increment: recoveryAmount } } }),
+                this.prisma.contract.update({ where: { id: contractId }, data: { status: CONTRACT_STATUS.DELETED } }),
+            ])
             return true
         } catch (e) {
             throw e

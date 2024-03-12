@@ -27,22 +27,25 @@ export class UsersService {
             if (data.role === ROLES.VIEW && user.role === ROLES.SUPERADMIN)
                 throw new ForbiddenException('Bạn chỉ có quyền tạo tài khoản quản trị')
             const userExisted = await this.prisma.user.findFirst({ where: { userName: data.userName } })
-            if (userExisted) throw new BadRequestException('User name is existed')
+            if (userExisted) throw new BadRequestException('Tài khoản không tồn tại')
             const hash = await bcrypt.hash(data.password, 10)
+            let referUserId = user.id
+            if (data.role === ROLES.ADMIN) referUserId = undefined
             const newUser = await this.prisma.user.create({
                 data: {
                     userName: data.userName,
                     role: data.role,
-                    referUserId: user.id,
+                    referUserId,
                     password: hash,
                     status: STATUS.ACTIVE,
                     amount: data.amount,
                     totalAmount: data.amount,
                 },
             })
-            await this.prisma.transactionAddMoney.create({
-                data: { type: TRANSACTION_TYPE.INVEST, amount: data.amount, userId: newUser.id },
-            })
+            if (data.role === ROLES.ADMIN)
+                await this.prisma.transactionAddMoney.create({
+                    data: { type: TRANSACTION_TYPE.INVEST, amount: data.amount, userId: newUser.id },
+                })
             return true
         } catch (e) {
             throw e
@@ -52,9 +55,9 @@ export class UsersService {
     async login(data: LoginDto): Promise<any> {
         try {
             const user = await this.prisma.user.findFirst({ where: { userName: data.email } })
-            if (!user) throw new BadRequestException('User name is incorrect!')
+            if (!user) throw new BadRequestException('Sai tên đăng nhập')
             const isMatch = await bcrypt.compare(data.password, user.password)
-            if (!isMatch) throw new BadRequestException('Password is incorrect!')
+            if (!isMatch) throw new BadRequestException('Nhập sai mật khẩu')
             const accessToken = this.jwtService.sign({
                 id: user.id,
                 role: user.role,
@@ -68,11 +71,17 @@ export class UsersService {
         }
     }
 
-    async resetPassword(data: ResetPassDto, adminUserId: number): Promise<any> {
+    async resetPassword(data: ResetPassDto, user: UserPayload): Promise<any> {
         try {
+            const account = await this.prisma.user.findUnique({ where: { id: data.id } })
+            if (!account) throw new BadRequestException('Không tìm thấy người dùng')
+            if (user.role === ROLES.VIEW && data.id !== user.id) {
+                throw new BadRequestException('Bạn không có quyền đổi mật khẩu tài khoản này!')
+            }
+            if (user.role === ROLES.ADMIN && data.id !== account.id && data.id !== account.referUserId) {
+                throw new BadRequestException('Bạn không có quyền đổi mật khẩu tài khoản này!')
+            }
             const hash = await bcrypt.hash(data.password, 10)
-            const user = await this.prisma.user.findUnique({ where: { id: data.id } })
-            if (!user) throw new BadRequestException('Không tìm thấy người dùng')
             await this.prisma.user.update({
                 where: { id: data.id },
                 data: {
@@ -128,11 +137,7 @@ export class UsersService {
     async deleteUser(deleteId: number, user: UserPayload): Promise<any> {
         try {
             const account = await this.prisma.user.findUnique({ where: { id: deleteId } })
-            if (
-                (user.role === ROLES.SUPERADMIN && account.role === ROLES.SUPERADMIN) ||
-                (user.role === ROLES.ADMIN && (account.role === ROLES.SUPERADMIN || account.role === ROLES.ADMIN)) ||
-                user.role === ROLES.VIEW
-            )
+            if (user.role === ROLES.VIEW || account.role === ROLES.ADMIN || account.role === ROLES.SUPERADMIN)
                 throw new ForbiddenException('Bạn không có quyền xoá tài khoản này')
             if (user.role === ROLES.SUPERADMIN) {
                 return this.prisma.user.deleteMany({
@@ -190,8 +195,9 @@ export class UsersService {
     async getStatistics(userId: number): Promise<any> {
         try {
             const userInfo = await this.prisma.user.findUnique({ where: { id: userId } })
-            if (!userInfo) throw new BadRequestException('Không tìm thấy thông tin user')
+            if (!userInfo) throw new BadRequestException('Không tìm thấy thông tin tài khoản')
             const adminUserId = userInfo.referUserId ? userInfo.referUserId : userId
+            const addminUserInfo = await this.prisma.user.findUnique({ where: { id: adminUserId } })
             const countContract = await this.prisma.contract.count({ where: { userId: adminUserId } })
             const countContractActive = await this.prisma.contract.count({
                 where: { userId: adminUserId, status: { notIn: [CONTRACT_STATUS.CLOSED, CONTRACT_STATUS.DELETED] } },
@@ -203,6 +209,7 @@ export class UsersService {
                         lte: DateTime.local({ zone: 'UTC' }).endOf('month').toJSDate(),
                     },
                     userId: adminUserId,
+                    status: { notIn: [CONTRACT_STATUS.DELETED] },
                 },
                 _sum: { loanAmount: true, receiveAmount: true },
             })
@@ -215,8 +222,8 @@ export class UsersService {
                 contractInMonth && contractInMonth._sum
                     ? contractInMonth._sum.loanAmount - contractInMonth._sum.receiveAmount
                     : 0
-            const capital = userInfo.totalAmount
-            const amount = userInfo.amount
+            const capital = addminUserInfo.totalAmount
+            const amount = addminUserInfo.amount
             return {
                 capital,
                 amount,
@@ -233,7 +240,7 @@ export class UsersService {
     async transactionInDay(userId: number) {
         try {
             const userInfo = await this.prisma.user.findUnique({ where: { id: userId } })
-            if (!userInfo) throw new BadRequestException('Không tìm thấy thông tin user')
+            if (!userInfo) throw new BadRequestException('Không tìm thấy thông tin tài khoản')
             const adminUserId = userInfo.referUserId ? userInfo.referUserId : userId
             const startOfDay = DateTime.local({ zone: 'UTC' }).startOf('day').toJSDate()
             const endOfDay = DateTime.local({ zone: 'UTC' }).endOf('day').toJSDate()
@@ -262,7 +269,7 @@ export class UsersService {
     async listTransactionAddMoney(userId: number) {
         try {
             const user = await this.prisma.user.findUnique({ where: { id: userId } })
-            if (!user) throw new BadRequestException('Không tìm thấy thông tin user')
+            if (!user) throw new BadRequestException('Không tìm thấy thông tin tài khoản')
             const adminUserId = user.referUserId || user.id
             return this.prisma.transactionAddMoney.findMany({ where: { userId: adminUserId } })
         } catch (e) {
