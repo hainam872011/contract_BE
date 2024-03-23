@@ -1,4 +1,4 @@
-import { IsIn, IsISO8601, IsNumberString, IsOptional, IsString } from 'class-validator'
+import { IsBoolean, IsIn, IsISO8601, IsNumberString, IsOptional, IsString } from 'class-validator'
 import { CONTRACT_STATUS } from '../../constants/const'
 
 const statusArr = [
@@ -9,6 +9,7 @@ const statusArr = [
     CONTRACT_STATUS.PENDING,
     CONTRACT_STATUS.CLOSED,
     CONTRACT_STATUS.DELETED,
+    'delay',
 ]
 
 export class SearchDto {

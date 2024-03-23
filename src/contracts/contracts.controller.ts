@@ -9,6 +9,7 @@ import { JwtAuthGeneralGuard } from '../common/auth/guards/jwt-auth-general.guar
 import { SearchDto } from './dto/search.dto'
 import { Paging } from '../common/responses/paging'
 import { UpdateContractDto } from './dto/updateContract.dto'
+import { PayFastDto } from './dto/payFast.dto'
 
 @Controller({
     path: 'contract',
@@ -137,13 +138,32 @@ export class ContractsController {
     @Get()
     @UseGuards(JwtAuthGeneralGuard)
     async getListContract(@AuthUser() user: UserPayload, @Query() queries: SearchDto): Promise<BaseResponse> {
-        const { data, count } = await this.contractsService.getListContract(user.id, queries)
-        return BaseResponse.ok(data, Paging.build(+queries.page, +queries.pageSize, count))
+        const { result, count } = await this.contractsService.getListContract(user.id, queries)
+        return BaseResponse.ok(result, Paging.build(+queries.page, +queries.pageSize, count))
     }
 
     @Delete('/:id')
     @UseGuards(JwtAuthAdminGuard)
     async deleteContract(@Param('id') contractId: string, @AuthUser() user: UserPayload): Promise<BaseResponse> {
         return BaseResponse.ok(await this.contractsService.deleteContract(parseInt(contractId), user.id))
+    }
+    @Post('/:id/pay-fast')
+    @UseGuards(JwtAuthAdminGuard)
+    async payFast(
+        @Param('id') contractId: string,
+        @AuthUser() user: UserPayload,
+        @Body() data: PayFastDto,
+    ): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.contractsService.payFast(parseInt(contractId), user.id, data))
+    }
+
+    @Post('/:id/change-contract')
+    @UseGuards(JwtAuthAdminGuard)
+    async changeContract(
+        @Param('id') contractId: string,
+        @AuthUser() user: UserPayload,
+        @Body() data: ContractDto,
+    ): Promise<BaseResponse> {
+        return BaseResponse.ok(await this.contractsService.changeContract(parseInt(contractId), user.id, data))
     }
 }

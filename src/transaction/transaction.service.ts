@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../common/connections/prisma.service'
 import { TransactionDto } from '../contracts/dto/transaction.dto'
 import { DateTime } from 'luxon'
-import { CONTRACT_STATUS } from '../constants/const'
+import { CONTRACT_STATUS, TRANSACTION_TYPE } from '../constants/const'
 
 @Injectable()
 export class TransactionService {
@@ -29,26 +29,17 @@ export class TransactionService {
                 throw new BadRequestException('Hợp đồng đã đóng hoặc xoá, không thể thao tác')
             let calculateAmount = { increment: data.amount }
             let amount = data.amount
-            let payDate = DateTime.fromJSDate(data.dateTransfer).plus({ day: contract.duration }).toJSDate()
             if (!data.isPaid) {
                 calculateAmount = { increment: 0 - data.amount }
                 amount = 0
-                payDate = data.dateTransfer
             }
-            const [createTrans, updateContract, updateAmount] = await Promise.all([
+            const [createTrans, updateAmount] = await Promise.all([
                 this.prisma.transaction.update({
                     where: { id: transactionId },
                     data: {
                         isPaid: data.isPaid,
                         dateTransfer: data.dateTransfer,
                         amount,
-                    },
-                }),
-                this.prisma.contract.update({
-                    where: { id: contractId },
-                    data: {
-                        paidAmount: calculateAmount,
-                        payDate,
                     },
                 }),
                 this.prisma.user.update({
@@ -58,6 +49,21 @@ export class TransactionService {
                     },
                 }),
             ])
+            // Update paydate and amount to contract
+            const lastTransPaid = await this.prisma.transaction.findFirst({
+                where: {
+                    contractId,
+                    type: TRANSACTION_TYPE.PAYMENT,
+                    isPaid: true,
+                },
+                orderBy: { date: 'desc' },
+            })
+            if (lastTransPaid?.id) {
+                await this.prisma.contract.update({
+                    where: { id: contractId },
+                    data: { payDate: lastTransPaid.date, paidAmount: calculateAmount },
+                })
+            }
             return createTrans
         } catch (e) {
             throw e

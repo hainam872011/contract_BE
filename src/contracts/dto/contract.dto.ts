@@ -44,7 +44,8 @@ export class ContractDto {
     numberPeriod: number
     @Expose()
     @IsBoolean()
-    collectMoney: boolean
+    @IsOptional()
+    collectMoney?: boolean
     @Expose()
     @IsNumber()
     @Min(1)
