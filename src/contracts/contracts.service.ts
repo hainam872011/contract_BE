@@ -67,6 +67,15 @@ export class ContractsService {
             const amountPerDay = Number(contract.loanAmount) / Number(contract.numberPeriod)
             const updateAmount = Number(contract.loanAmount) - Number(contract.paidAmount) - Number(data.receiveAmount)
             if (Number(user.amount) + updateAmount < 0) throw new BadRequestException('Không đủ tiền cho vay mới')
+            const contractCreate = Object.assign(contract)
+            delete contractCreate.id
+            delete contractCreate.createdAt
+            delete contractCreate.updatedAt
+            delete contractCreate.loanAmount
+            delete contractCreate.receiveAmount
+            delete contractCreate.paidAmount
+            delete contractCreate.numberPeriod
+            delete contractCreate.payDate
             const [trans, oldContract, newContract, updateUser] = await Promise.all([
                 // Update transaction
                 this.prisma.transaction.updateMany({
@@ -81,11 +90,15 @@ export class ContractsService {
                 // Create new contract
                 this.prisma.contract.create({
                     data: {
-                        ...contract,
+                        ...contractCreate,
                         userId: userId,
-                        payDate: data.date,
                         status: CONTRACT_STATUS.PENDING,
                         paidAmount: 0,
+                        loanAmount: data.loanAmount,
+                        receiveAmount: data.receiveAmount,
+                        numberPeriod: data.numberPeriod,
+                        duration: data.duration,
+                        date: data.date,
                     },
                 }),
                 // Update user Amount
@@ -112,7 +125,7 @@ export class ContractsService {
                     type: 'payment',
                     date: dateRow,
                     amount: amount,
-                    contractId: contract.id,
+                    contractId: newContract.id,
                     isPaid,
                     dateTransfer,
                 })
@@ -288,7 +301,7 @@ export class ContractsService {
             if (contract.paidAmount >= contract.loanAmount) throw new BadRequestException('Hợp đồng đã được trả đủ')
             const amountPerDay = contract.loanAmount / contract.numberPeriod
             const numberDayOfPay = Number(data.amount) / Number(amountPerDay)
-            for (let i = 1; i < numberDayOfPay; i++) {
+            for (let i = 1; i <= numberDayOfPay; i++) {
                 const lastTransNotPaid = await this.prisma.transaction.findFirst({
                     where: {
                         contractId,
