@@ -24,8 +24,8 @@ export class ContractsService {
                 data: {
                     ...data,
                     userId: userId,
-                    payDate: data.date,
-                    status: CONTRACT_STATUS.PENDING,
+                    payDate: DateTime.fromJSDate(data.date).minus({ days: 1 }).toJSDate(),
+                    status: CONTRACT_STATUS.ON_TIME,
                     paidAmount,
                 },
             })
@@ -64,6 +64,8 @@ export class ContractsService {
             if (!user) throw new BadRequestException('Tài khoản không tồn tại')
             const contract = await this.prisma.contract.findUnique({ where: { id: contractId } })
             if (!contract) throw new BadRequestException('Hợp đồng không tồn tại')
+            if (contract.status === CONTRACT_STATUS.CLOSED || contract.status === CONTRACT_STATUS.DELETED)
+                throw new BadRequestException('Không thể sửa hợp đồng này')
             const amountPerDay = Number(contract.loanAmount) / Number(contract.numberPeriod)
             const updateAmount = Number(contract.loanAmount) - Number(contract.paidAmount) - Number(data.receiveAmount)
             if (Number(user.amount) + updateAmount < 0) throw new BadRequestException('Không đủ tiền cho vay mới')
@@ -99,6 +101,7 @@ export class ContractsService {
                         numberPeriod: data.numberPeriod,
                         duration: data.duration,
                         date: data.date,
+                        payDate: DateTime.fromJSDate(data.date).minus({ days: 1 }).toJSDate(),
                     },
                 }),
                 // Update user Amount
@@ -174,6 +177,7 @@ export class ContractsService {
             if (!user) throw new BadRequestException('Tài khoản không tồn tại')
             if (contract.userId !== user.id && contract.userId !== user.referUserId)
                 throw new ForbiddenException('Bạn không có quyền xem hợp đồng này')
+            contract['unpaidAmount'] = contract.loanAmount - contract.paidAmount
             return contract
         } catch (e) {
             throw e
@@ -215,29 +219,28 @@ export class ContractsService {
             const [data, count] = await Promise.all([
                 this.prisma.contract.findMany({
                     where: condition,
-                    orderBy: { date: 'desc' },
+                    orderBy: { id: 'desc' },
                     skip: (+queries.page - 1) * +queries.pageSize,
                     take: +queries.pageSize,
                 }),
                 this.prisma.contract.count({ where: condition }),
             ])
             const result = data.map((e) => {
-                const payDateTime = DateTime.fromJSDate(e.payDate).endOf('day')
+                const payDateTime = DateTime.fromJSDate(e.payDate)
                 const now = DateTime.now()
                 // const numberDayDelay = Math.ceil(now.diff(payDateTime, 'days').days)
                 // const amountDelay = (e.loanAmount / e.numberPeriod) * numberDayDelay
-                const numberDayDelay = Math.ceil(now.diff(payDateTime, 'days').days)
+                const numberDayDelay = Math.floor(now.diff(payDateTime, 'days').days)
                 const amountDelay = (e.loanAmount / e.numberPeriod) * numberDayDelay
-                const textNotice = `Chậm ${numberDayDelay} ngày đóng họ. Đóng ${amountDelay.toLocaleString(
+                const textNotice = numberDayDelay > 0 ? `Chậm ${numberDayDelay} ngày đóng họ. Đóng ${amountDelay.toLocaleString(
                     'en-US',
-                )} tiền họ.`
+                )} tiền họ.` : ''
                 const ratio = `${((e.loanAmount * 10) / e.receiveAmount).toFixed(0)} ăn 10`
                 const amountPerDay = e.loanAmount / e.numberPeriod
                 const unpaidAmount = e.loanAmount - e.paidAmount
-                const dateToPay = e.loanAmount - e.paidAmount
                 return {
                     ...e,
-                    numberDayDelay,
+                    numberDayDelay: numberDayDelay > 0 ? numberDayDelay : 0,
                     amountDelay,
                     textNotice,
                     ratio,
@@ -299,6 +302,7 @@ export class ContractsService {
             if (contract.status === CONTRACT_STATUS.DELETED || contract.status === CONTRACT_STATUS.CLOSED)
                 throw new BadRequestException('Hợp đồng đã đóng hoặc bị xoá')
             if (contract.paidAmount >= contract.loanAmount) throw new BadRequestException('Hợp đồng đã được trả đủ')
+            if (data.amount > contract.loanAmount - contract.paidAmount) throw new BadRequestException('Quá số tiền cần đóng')
             const amountPerDay = contract.loanAmount / contract.numberPeriod
             const numberDayOfPay = Number(data.amount) / Number(amountPerDay)
             for (let i = 1; i <= numberDayOfPay; i++) {
@@ -327,9 +331,17 @@ export class ContractsService {
                 orderBy: { date: 'desc' },
             })
             if (lastTransPaid?.id) {
+                const now = DateTime.local()
+                const lastPayDate = DateTime.fromJSDate(lastTransPaid.date)
+                const diffPayDate = now.diff(lastPayDate, 'days').days
+                let status
+                if (diffPayDate < 2 && diffPayDate > 1)
+                    status = CONTRACT_STATUS.ON_TIME
+                if (diffPayDate < 1)
+                    status = CONTRACT_STATUS.PENDING
                 await this.prisma.contract.update({
                     where: { id: contractId },
-                    data: { payDate: lastTransPaid.date, paidAmount: { increment: data.amount } },
+                    data: { payDate: lastTransPaid.date, paidAmount: { increment: data.amount }, status },
                 })
             }
             // Update amount to user

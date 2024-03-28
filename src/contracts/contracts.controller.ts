@@ -36,7 +36,12 @@ export class ContractsController {
     @UseGuards(JwtAuthAdminGuard)
     async updateContract(
         @Param('id') contractId: string,
-        @Body() data: UpdateContractDto,
+        @Body(
+            new ValidationPipe({
+                transform: true,
+                transformOptions: { excludeExtraneousValues: true },
+            }),
+        ) data: UpdateContractDto,
         @AuthUser() user: UserPayload,
     ): Promise<BaseResponse> {
         return BaseResponse.ok(await this.contractsService.updateContract(data, user.id, parseInt(contractId)))

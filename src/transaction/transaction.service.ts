@@ -58,10 +58,32 @@ export class TransactionService {
                 },
                 orderBy: { date: 'desc' },
             })
+            const now = DateTime.local()
             if (lastTransPaid?.id) {
+                const lastPayDate = DateTime.fromJSDate(lastTransPaid.date)
+                const diffPayDate = now.diff(lastPayDate, 'days').days
+                let status
+                if (diffPayDate < 2 && diffPayDate > 1)
+                    status = CONTRACT_STATUS.ON_TIME
+                if (diffPayDate < 1)
+                    status = CONTRACT_STATUS.PENDING
+                if (diffPayDate > 2)
+                    status = CONTRACT_STATUS.LATE
                 await this.prisma.contract.update({
                     where: { id: contractId },
-                    data: { payDate: lastTransPaid.date, paidAmount: calculateAmount },
+                    data: { payDate: lastTransPaid.date, paidAmount: calculateAmount, status },
+                })
+            } else {
+                const lastPayDate = DateTime.fromJSDate(contract.date).minus({day: 1})
+                const diffPayDate = now.diff(lastPayDate, 'days').days
+                let status
+                if (diffPayDate < 2 && diffPayDate > 1)
+                    status = CONTRACT_STATUS.ON_TIME
+                if (diffPayDate > 2)
+                    status = CONTRACT_STATUS.LATE
+                await this.prisma.contract.update({
+                    where: { id: contractId },
+                    data: { payDate: lastPayDate.toJSDate(), paidAmount: calculateAmount, status },
                 })
             }
             return createTrans

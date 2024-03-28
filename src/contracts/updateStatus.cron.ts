@@ -40,12 +40,15 @@ export class UpdateStatusCron {
                 if (diffLastDay >= 1) {
                     await this.updateContractStatus(contract.id, CONTRACT_STATUS.EXPIRED)
                 }
+                if (diffPayDate < 1) {
+                    await this.updateContractStatus(contract.id, CONTRACT_STATUS.PENDING)
+                }
                 // Pending || Late -> on time
-                if ((status === CONTRACT_STATUS.PENDING || status === CONTRACT_STATUS.LATE) && diffPayDate === 1) {
+                if ((status === CONTRACT_STATUS.PENDING || status === CONTRACT_STATUS.LATE) && diffPayDate < 2 && diffPayDate > 1) {
                     await this.updateContractStatus(contract.id, CONTRACT_STATUS.ON_TIME)
                 }
                 // Pending -> late
-                if ((status === CONTRACT_STATUS.PENDING || status === CONTRACT_STATUS.ON_TIME) && diffPayDate > 1) {
+                if ((status === CONTRACT_STATUS.PENDING || status === CONTRACT_STATUS.ON_TIME) && diffPayDate > 2) {
                     await this.updateContractStatus(contract.id, CONTRACT_STATUS.LATE)
                 }
                 // Pending -> last day
